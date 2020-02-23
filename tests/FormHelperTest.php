@@ -71,10 +71,11 @@ class FormHelperTest extends FormBuilderTestCase
 
     /**
      * @test
-     * @expectedException \InvalidArgumentException
      */
     public function it_throws_InvalidArgumentException_for_non_existing_field_type()
     {
+        $this->expectException(\InvalidArgumentException::class);
+
         $this->formHelper->getFieldType('nonexisting');
     }
 
@@ -140,19 +141,21 @@ class FormHelperTest extends FormBuilderTestCase
 
     /**
      * @test
-     * @expectedException \InvalidArgumentException
      */
     public function it_throws_InvalidArgumentException_for_empty_field_name()
     {
+        $this->expectException(\InvalidArgumentException::class);
+
         $this->formHelper->checkFieldName('', get_class($this));
     }
 
     /**
      * @test
-     * @expectedException \InvalidArgumentException
      */
     public function it_throws_InvalidArgumentException_for_reserved_field_names()
     {
+        $this->expectException(\InvalidArgumentException::class);
+
         $this->formHelper->checkFieldName('save', get_class($this));
     }
 }

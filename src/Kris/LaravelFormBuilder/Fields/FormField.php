@@ -218,7 +218,8 @@ abstract class FormField
      *
      * @return array
      */
-    protected function getRenderData() {
+    protected function getRenderData()
+    {
         return [];
     }
 
@@ -256,23 +257,26 @@ abstract class FormField
      * Prepare options for rendering.
      *
      * @param array $options
-     * @return array
+     * @return array The parsed options
      */
     protected function prepareOptions(array $options = [])
     {
         $helper = $this->formHelper;
+
+        $this->options = $this->prepareRules($options);
+        $this->options = $helper->mergeOptions($this->options, $options);
+
         $rulesParser = $helper->createRulesParser($this);
         $rules = $this->getOption('rules');
         $parsedRules = $rules ? $rulesParser->parse($rules) : [];
 
-        $this->options = $helper->mergeOptions($this->options, $options);
 
         foreach (['attr', 'label_attr', 'wrapper'] as $appendable) {
             // Append values to the 'class' attribute
             if ($this->getOption("{$appendable}.class_append")) {
                 // Combine the current class attribute with the appends
                 $append = $this->getOption("{$appendable}.class_append");
-                $classAttribute = $this->getOption("{$appendable}.class", '').' '.$append;
+                $classAttribute = $this->getOption("{$appendable}.class", '') . ' ' . $append;
                 $this->setOption("{$appendable}.class", $classAttribute);
 
                 // Then remove the class_append option to prevent it from showing up as an attribute in the HTML
@@ -281,7 +285,7 @@ abstract class FormField
         }
 
         if ($this->getOption('attr.multiple') && !$this->getOption('tmp.multipleBracesSet')) {
-            $this->name = $this->name.'[]';
+            $this->name = $this->name . '[]';
             $this->setOption('tmp.multipleBracesSet', true);
         }
 
@@ -293,8 +297,8 @@ abstract class FormField
             $lblClass = $this->getOption('label_attr.class', '');
             $requiredClass = $this->getConfig('defaults.required_class', 'required');
 
-            if (! Str::contains($lblClass, $requiredClass)) {
-                $lblClass .= ' '.$requiredClass;
+            if (!Str::contains($lblClass, $requiredClass)) {
+                $lblClass .= ' ' . $requiredClass;
                 $this->setOption('label_attr.class', $lblClass);
             }
 
@@ -320,6 +324,66 @@ abstract class FormField
 
         return $this->options;
     }
+
+    /**
+     * Normalize and merge rules.
+     * @param array $sourceOptions
+     * @return array
+     */
+    protected function prepareRules(array &$sourceOptions = [])
+    {
+        $options = $this->options;
+
+        // Normalize rules
+        if (array_key_exists('rules_append', $sourceOptions)) {
+            $sourceOptions['rules_append'] = $this->normalizeRules($sourceOptions['rules_append']);
+        }
+
+        if (array_key_exists('rules', $sourceOptions)) {
+            $sourceOptions['rules'] = $this->normalizeRules($sourceOptions['rules']);
+        }
+
+        if (array_key_exists('rules', $options)) {
+            $options['rules'] = $this->normalizeRules($options['rules']);
+        }
+
+
+        // Append rules
+        if ($rulesToBeAppended = Arr::pull($sourceOptions, 'rules_append')) {
+            $mergedRules = array_values(array_unique(array_merge($options['rules'], $rulesToBeAppended), SORT_REGULAR));
+            $options['rules'] = $mergedRules;
+        }
+
+        return $options;
+    }
+
+    /**
+     * Normalize the the given rule expression to an array.
+     * @param mixed $rules
+     * @return array
+     */
+    protected function normalizeRules($rules)
+    {
+        if (empty($rules)) {
+            return [];
+        }
+
+        if (is_string($rules)) {
+            return explode('|', $rules);
+        }
+
+        if (is_array($rules)) {
+            $normalizedRules = [];
+            foreach ($rules as $rule) {
+                $normalizedRules[] = $this->normalizeRules($rule);
+            }
+
+            return array_values(array_unique(Arr::flatten($normalizedRules), SORT_REGULAR));
+        }
+
+        return $rules;
+    }
+
 
     /**
      * Get name of the field.
@@ -533,14 +597,17 @@ abstract class FormField
      */
     protected function addErrorClass()
     {
-        $errors = $this->parent->getRequest()->session()->get('errors');
+        $errors = [];
+        if ($this->parent->getRequest()->hasSession()) {
+            $errors = $this->parent->getRequest()->session()->get('errors');
+        }
         $errorBag = $this->parent->getErrorBag();
 
         if ($errors && $errors->hasBag($errorBag) && $errors->getBag($errorBag)->has($this->getNameKey())) {
             $fieldErrorClass = $this->getConfig('defaults.field_error_class');
             $fieldClass = $this->getOption('attr.class');
 
-            if ($fieldErrorClass && !str_contains($fieldClass, $fieldErrorClass)) {
+            if ($fieldErrorClass && !Str::contains($fieldClass, $fieldErrorClass)) {
                 $fieldClass .= ' ' . $fieldErrorClass;
                 $this->setOption('attr.class', $fieldClass);
             }
@@ -548,7 +615,7 @@ abstract class FormField
             $wrapperErrorClass = $this->getConfig('defaults.wrapper_error_class');
             $wrapperClass = $this->getOption('wrapper.class');
 
-            if ($wrapperErrorClass && $this->getOption('wrapper') && !str_contains($wrapperClass, $wrapperErrorClass)) {
+            if ($wrapperErrorClass && $this->getOption('wrapper') && !Str::contains($wrapperClass, $wrapperErrorClass)) {
                 $wrapperClass .= ' ' . $wrapperErrorClass;
                 $this->setOption('wrapper.class', $wrapperClass);
             }
@@ -673,7 +740,7 @@ abstract class FormField
         $rules = $this->getOption('rules', []);
         $name = $this->getNameKey();
         $messages = $this->getOption('error_messages', []);
-        $formName = $this->formHelper->transformToDotSyntax($this->parent->getName());
+        $formName = $this->parent->getNameKey();
 
         if ($messages && $formName) {
             $newMessages = [];
@@ -686,16 +753,6 @@ abstract class FormField
 
         if (!$rules) {
             return (new Rules([]))->setFieldName($this->getNameKey());
-        }
-
-        if (is_array($rules)) {
-            $rules = array_map(function ($rule) use ($name) {
-                if ($rule instanceof \Closure) {
-                    return $rule($name);
-                }
-
-                return $rule;
-            }, $rules);
         }
 
         return (new Rules(

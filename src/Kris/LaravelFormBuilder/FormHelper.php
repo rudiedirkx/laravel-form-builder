@@ -130,14 +130,15 @@ class FormHelper
     /**
      * Merge options array.
      *
-     * @param array $first
-     * @param array $second
+     * @param array $targetOptions
+     * @param array $sourceOptions
      * @return array
      */
-    public function mergeOptions(array $first, array $second)
+    public function mergeOptions(array $targetOptions, array $sourceOptions)
     {
-        return array_replace_recursive($first, $second);
+        return array_replace_recursive($targetOptions, $sourceOptions);
     }
+
 
     /**
      * Get proper class for field type.
@@ -344,9 +345,6 @@ class FormHelper
      */
     public function alterFieldValues(Form $form, array &$values)
     {
-        // Alter the form itself
-        $form->alterFieldValues($values);
-
         // Alter the form's child forms recursively
         foreach ($form->getFields() as $name => $field) {
             if (method_exists($field, 'alterFieldValues')) {
@@ -357,6 +355,9 @@ class FormHelper
                 Arr::set($values, $fullName, $subValues);
             }
         }
+
+        // Alter the form itself
+        $form->alterFieldValues($values);
     }
 
     /**

@@ -81,6 +81,9 @@ class CollectionType extends ParentType
         $oldInput = $this->parent->getRequest()->old($this->getNameKey());
         $currentInput = $this->parent->getRequest()->input($this->getNameKey());
 
+        is_array($oldInput) or $oldInput = [];
+        is_array($currentInput) or $currentInput = [];
+
         try {
             $fieldType = $this->formHelper->getFieldType($type);
         } catch (\Exception $e) {
@@ -118,8 +121,9 @@ class CollectionType extends ParentType
         }
 
         if (!$data || empty($data)) {
-            if ($this->getOption('empty_row')) {
-                return $this->children[] = $this->setupChild(clone $field, '[0]');
+            if ($empty = $this->getOption('empty_row')) {
+                $val = $empty === true ? null : $empty;
+                return $this->children[] = $this->setupChild(clone $field, '[0]', $val);
             }
 
             return $this->children = [];

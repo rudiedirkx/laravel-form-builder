@@ -47,7 +47,8 @@ class Form
      */
     protected $formOptions = [
         'method' => 'GET',
-        'url' => null
+        'url' => null,
+        'attr' => [],
     ];
 
     /**
@@ -340,14 +341,35 @@ class Form
     /**
      * Remove field with specified name from the form.
      *
-     * @param $name
+     * @param string|string[] $names
      * @return $this
      */
-    public function remove($name)
+    public function remove($names)
     {
-        if ($this->has($name)) {
-            unset($this->fields[$name]);
+        foreach (is_array($names) ? $names : func_get_args() as $name) {
+            if ($this->has($name)) {
+                unset($this->fields[$name]);
+            }
         }
+
+        return $this;
+    }
+
+    /**
+     * Take only the given fields from the form.
+     *
+     * @param string|string[] $fieldNames
+     * @return $this
+     */
+    public function only($fieldNames)
+    {
+        $newFields = [];
+
+        foreach (is_array($fieldNames) ? $fieldNames : func_get_args() as $fieldName) {
+            $newFields[$fieldName] = $this->getField($fieldName);
+        }
+
+        $this->fields = $newFields;
 
         return $this;
     }
@@ -601,6 +623,16 @@ class Form
     public function getName()
     {
         return $this->name;
+    }
+
+    /**
+     * Get dot notation key for the form.
+     *
+     * @return string
+     **/
+    public function getNameKey()
+    {
+        return $this->formHelper->transformToDotSyntax($this->name);
     }
 
     /**
@@ -945,7 +977,9 @@ class Form
      */
     protected function render($options, $fields, $showStart, $showFields, $showEnd)
     {
-        $formOptions = $this->formHelper->mergeOptions($this->formOptions, $options);
+        $formOptions = $this->buildFormOptionsForFormBuilder(
+            $this->formHelper->mergeOptions($this->formOptions, $options)
+        );
 
         $this->setupNamedModel();
 
@@ -959,6 +993,28 @@ class Form
             ->with('form', $this)
             ->render();
     }
+
+    /**
+     * @param $formOptions
+     * @return array
+     */
+    protected function buildFormOptionsForFormBuilder($formOptions)
+    {
+        $reserved = ['method', 'url', 'route', 'action', 'files'];
+        $formAttributes = Arr::get($formOptions, 'attr', []);
+
+        // move string value to `attr` to maintain backward compatibility
+        foreach ($formOptions as $key => $formOption) {
+            if (!in_array($formOption, $reserved) && is_string($formOption)) {
+                $formAttributes[$key] = $formOption;
+            }
+        }
+
+        return array_merge(
+            $formAttributes, Arr::only($formOptions, $reserved)
+        );
+    }
+
 
     /**
      * Get template from options if provided, otherwise fallback to config.
@@ -1051,7 +1107,7 @@ class Form
             return false;
         }
 
-        $dotName = $this->formHelper->transformToDotSyntax($this->getName());
+        $dotName = $this->getNameKey();
         $model = $this->formHelper->convertModelToArray($this->getModel());
         $isCollectionFormModel = (bool) preg_match('/^.*\.\d+$/', $dotName);
         $isCollectionPrototype = strpos($dotName, '__NAME__') !== false;
@@ -1304,8 +1360,8 @@ class Form
         }
 
         // If this form is a child form, cherry pick a part
-        if ($prefix = $this->getName()) {
-            $prefix = $this->formHelper->transformToDotSyntax($prefix);
+        if ($this->getName()) {
+            $prefix = $this->getNameKey();
             $values = Arr::get($values, $prefix);
         }
 
@@ -1350,7 +1406,7 @@ class Form
             $filters = array_filter($this->getFilters());
 
             if (count($filters)) {
-                $dotForm = $this->formHelper->transformToDotSyntax($this->getName());
+                $dotForm = $this->getNameKey();
 
                 $request = $this->getRequest();
                 $requestData = $request->all();

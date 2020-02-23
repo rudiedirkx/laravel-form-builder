@@ -14,13 +14,16 @@ By default it supports Bootstrap 3.
 ## Laravel 4
 For Laravel 4 version check [laravel4-form-builder](https://github.com/kristijanhusak/laravel4-form-builder).
 
+## Bootstrap 4 support
+To use bootstrap 4 instead of bootstrap 3, install [laravel-form-builder-bs4](https://github.com/ycs77/laravel-form-builder-bs4).
+
 ## Upgrade to 1.6
 If you upgraded to `>1.6.*` from `1.5.*` or earlier, and having problems with form value binding, rename `default_value` to `value`.
 
 More info in [changelog](https://github.com/kristijanhusak/laravel-form-builder/blob/master/CHANGELOG.md).
 
 ## Documentation
-For detailed documentation refer to [http://kristijanhusak.github.io/laravel-form-builder/](http://kristijanhusak.github.io/laravel-form-builder/).
+For detailed documentation refer to https://kristijanhusak.github.io/laravel-form-builder/.
 
 ## Changelog
 Changelog can be found [here](https://github.com/kristijanhusak/laravel-form-builder/blob/master/CHANGELOG.md).
@@ -194,6 +197,82 @@ class SongsController extends BaseController {
         // Do saving and other things...
     }
 }
+```
+
+
+If you want to store a model after a form submit considerating all fields are model properties:
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Controllers\Controller;
+use Kris\LaravelFormBuilder\FormBuilder;
+use App\SongForm;
+
+class SongFormController extends Controller
+{
+    public function store(FormBuilder $formBuilder)
+    {
+        $form = $formBuilder->create(\App\Forms\SongForm::class);
+        $form->redirectIfNotValid();
+        
+        SongForm::create($form->getFieldValues());
+
+        // Do redirecting...
+    }
+```
+
+You can only save properties you need:
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Controllers\Controller;
+use Kris\LaravelFormBuilder\FormBuilder;
+use App\SongForm;
+
+class SongFormController extends Controller
+{
+    public function store(FormBuilder $formBuilder, Request $request)
+    {
+        $form = $formBuilder->create(\App\Forms\SongForm::class);
+        $form->redirectIfNotValid();
+        
+        $songForm = new SongForm();
+        $songForm->fill($request->only(['name', 'artist'])->save();
+
+        // Do redirecting...
+    }
+```
+
+Or you can update any model after form submit:
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Controllers\Controller;
+use Kris\LaravelFormBuilder\FormBuilder;
+use App\SongForm;
+
+class SongFormController extends Controller
+{
+    public function update(int $id, Request $request)
+    {
+        $songForm = SongForm::findOrFail($id);
+
+        $form = $this->getForm($songForm);
+        $form->redirectIfNotValid();
+
+        $songForm->update($form->getFieldValues());
+
+        // Do redirecting...
+    }
 ```
 
 Create the routes
